@@ -77,18 +77,33 @@ class PolishAgent(BaseAgent):
         ]
 
         try:
-            response_list = await generation_utils.call_gemini_with_retry_async(
-                model_name=self.text_model_name,
-                contents=content_list,
-                config=types.GenerateContentConfig(
-                    system_instruction=self.suggestion_system_prompt,
-                    temperature=1,
-                    candidate_count=1,
-                    max_output_tokens=50000,
-                ),
-                max_attempts=3,
-                retry_delay=10,
-            )
+            if "llm7" in self.text_model_name:
+                llm7_model = self.text_model_name.split("llm7/", 1)[-1] if "llm7/" in self.text_model_name else self.text_model_name
+                response_list = await generation_utils.call_llm7_with_retry_async(
+                    model_name=llm7_model,
+                    contents=content_list,
+                    config={
+                        "system_prompt": self.suggestion_system_prompt,
+                        "temperature": 1,
+                        "candidate_num": 1,
+                        "max_completion_tokens": 50000,
+                    },
+                    max_attempts=3,
+                    retry_delay=10,
+                )
+            else:
+                response_list = await generation_utils.call_gemini_with_retry_async(
+                    model_name=self.text_model_name,
+                    contents=content_list,
+                    config=types.GenerateContentConfig(
+                        system_instruction=self.suggestion_system_prompt,
+                        temperature=1,
+                        candidate_count=1,
+                        max_output_tokens=50000,
+                    ),
+                    max_attempts=3,
+                    retry_delay=10,
+                )
             return response_list[0] if response_list else ""
         except Exception as e:
             print(f"❌ Error during suggestion generation: {e}")

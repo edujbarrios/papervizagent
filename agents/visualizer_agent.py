@@ -183,6 +183,20 @@ class VisualizerAgent(BaseAgent):
                     max_attempts=5,
                     retry_delay=30,
                 )
+            elif "llm7" in self.model_name:
+                llm7_model = self.model_name.split("llm7/", 1)[-1] if "llm7/" in self.model_name else self.model_name
+                response_list = await generation_utils.call_llm7_with_retry_async(
+                    model_name=llm7_model,
+                    contents=content_list,
+                    config={
+                        "system_prompt": self.system_prompt,
+                        "temperature": self.exp_config.temperature,
+                        "candidate_num": 1,
+                        "max_completion_tokens": cfg["max_output_tokens"],
+                    },
+                    max_attempts=5,
+                    retry_delay=30,
+                )
             else:
                 raise ValueError(f"Unsupported model: {self.model_name}")
             
