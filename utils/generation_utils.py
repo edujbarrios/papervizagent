@@ -89,6 +89,20 @@ except Exception as e:
     print(f"Warning: Could not initialize OpenAI Client: {e}")
     openai_client = None
 
+# LLM7.io client (OpenAI-compatible API gateway)
+try:
+    llm7_api_key = get_config_val("api_keys", "llm7_api_key", "LLM7_API_KEY", "")
+    llm7_base_url = get_config_val("llm7", "base_url", "LLM7_BASE_URL", "https://api.llm7.io/v1")
+    if llm7_api_key:
+        llm7_client = AsyncOpenAI(api_key=llm7_api_key, base_url=llm7_base_url)
+        print(f"Initialized LLM7 Client with base URL: {llm7_base_url}")
+    else:
+        llm7_client = AsyncOpenAI(api_key="unused", base_url=llm7_base_url)
+        print(f"Initialized LLM7 Client (no API key) with base URL: {llm7_base_url}")
+except Exception as e:
+    print(f"Warning: Could not initialize LLM7 Client: {e}")
+    llm7_client = None
+
 
 
 def _convert_to_gemini_parts(contents: List[Dict[str, Any]]) -> List[types.Part]:
@@ -403,6 +417,88 @@ async def call_openai_with_retry_async(
         for res in results:
             if isinstance(res, Exception):
                 print(f"Error generating a subsequent candidate: {res}")
+                response_text_list.append("Error")
+            else:
+                response_text_list.append(res.choices[0].message.content)
+
+    return response_text_list
+
+
+async def call_llm7_with_retry_async(
+    model_name, contents, config, max_attempts=5, retry_delay=30, error_context=""
+):
+    """
+    ASYNC: Call LLM7.io API with asynchronous retry logic.
+    LLM7.io provides an OpenAI-compatible API, so the request format is identical
+    to OpenAI's chat completions endpoint.
+    """
+    system_prompt = config["system_prompt"]
+    temperature = config["temperature"]
+    candidate_num = config["candidate_num"]
+    max_completion_tokens = config["max_completion_tokens"]
+    response_text_list = []
+
+    # --- Preparation Phase ---
+    current_contents = contents
+
+    # --- Validation and Remediation Phase ---
+    is_input_valid = False
+    for attempt in range(max_attempts):
+        try:
+            openai_contents = _convert_to_openai_format(current_contents)
+            first_response = await llm7_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": openai_contents}
+                ],
+                temperature=temperature,
+                max_completion_tokens=max_completion_tokens,
+            )
+            response_text_list.append(first_response.choices[0].message.content)
+            is_input_valid = True
+            break
+
+        except Exception as e:
+            error_str = str(e).lower()
+            context_msg = f" for {error_context}" if error_context else ""
+            print(
+                f"LLM7 validation attempt {attempt + 1} failed{context_msg}: {error_str}. Retrying in {retry_delay} seconds..."
+            )
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(retry_delay)
+
+    # --- Sampling Phase ---
+    if not is_input_valid:
+        context_msg = f" for {error_context}" if error_context else ""
+        print(
+            f"Error: All {max_attempts} LLM7 attempts failed to validate the input{context_msg}. Returning errors."
+        )
+        return ["Error"] * candidate_num
+
+    remaining_candidates = candidate_num - 1
+    if remaining_candidates > 0:
+        print(
+            f"LLM7 input validated. Now generating remaining {remaining_candidates} candidates..."
+        )
+        valid_openai_contents = _convert_to_openai_format(current_contents)
+        tasks = [
+            llm7_client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": valid_openai_contents}
+                ],
+                temperature=temperature,
+                max_completion_tokens=max_completion_tokens,
+            )
+            for _ in range(remaining_candidates)
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        for res in results:
+            if isinstance(res, Exception):
+                print(f"Error generating a subsequent LLM7 candidate: {res}")
                 response_text_list.append("Error")
             else:
                 response_text_list.append(res.choices[0].message.content)

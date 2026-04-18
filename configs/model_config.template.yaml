@@ -30,8 +30,13 @@ api_keys:
   google_api_key: ""
   openai_api_key: ""
   anthropic_api_key: ""
+  llm7_api_key: ""  # Get a free token from https://token.llm7.io
   
 # Anthropic Vertex Settings (if you want to use Anthropic via Vertex)
 anthropic:
   region: "us-central1"
   project_id: "" # Leave empty to use google_cloud.project_id
+
+# LLM7.io Settings (OpenAI-compatible API gateway for free LLM access)
+llm7:
+  base_url: "https://api.llm7.io/v1"  # Default LLM7 API endpoint

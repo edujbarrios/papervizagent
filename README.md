@@ -40,6 +40,26 @@ cd PaperVizAgent
 PaperVizAgent supports configuring API keys and Google Cloud settings via environment variables OR a YAML configuration file. 
 You can duplicate the `configs/model_config.template.yaml` file into `configs/model_config.yaml` to externalize all user configurations. This file is ignored by git to keep your api keys and configurations secret.
 
+#### Using LLM7.io as a Provider
+[LLM7.io](https://llm7.io) is a free, OpenAI-compatible API gateway that provides access to various LLMs (GPT-4, DeepSeek, Mistral, etc.). To use LLM7.io models with PaperVizAgent:
+
+1. Get a free API token from [token.llm7.io](https://token.llm7.io)
+2. Set the environment variable or add the key to your config:
+   ```bash
+   export LLM7_API_KEY="your_llm7_token"
+   ```
+3. Use the `llm7/` prefix when specifying model names. For example:
+   ```bash
+   python main.py --model_name "llm7/gpt-4" --exp_mode "dev_planner_critic"
+   ```
+   Or set it in your `configs/model_config.yaml`:
+   ```yaml
+   defaults:
+     model_name: "llm7/gpt-4"
+   ```
+
+LLM7.io support is available for all text-generation agents (Retriever, Planner, Stylist, Critic) and code-generation tasks (plot Visualizer). Note that LLM7.io does not currently support image generation, so diagram visualization still requires Gemini or OpenAI image models.
+
 ### Downloading the Dataset
 *PaperBananaBench dataset will be released shortly.* 
 Once available, you will place it under the `data` directory (e.g., `data/PaperBananaBench/`). The framework is designed to function gracefully without the dataset by bypassing the Retriever Agent's few-shot learning capability.
@@ -68,6 +88,7 @@ Once available, you will place it under the `data` directory (e.g., `data/PaperB
     export GOOGLE_API_KEY="your_google_api_key" # 
     export ANTHROPIC_API_KEY="your_anthropic_api_key"
     export OPENAI_API_KEY="your_openai_api_key"
+    export LLM7_API_KEY="your_llm7_api_key"  # Get a free token from https://token.llm7.io
     ```
 
 ### Launch PaperVizAgent
